@@ -45,7 +45,7 @@ export function createDefensiveWall(scene: THREE.Scene): DefensiveWall {
   function applyWallStance(d: HumanoidRig, jumpHeight: number, elapsed: number, phaseOffset: number) {
     d.group.position.y = jumpHeight;
     const sway = Math.sin(elapsed * 2.3 + phaseOffset) * 0.01;
-    d.hips.position.y = 0.94 + sway;
+    d.hips.position.y = 0.72 + sway;   // cartoon rig hips height
     d.torsoPivot.rotation.set(0.08, 0, 0);
     // Arms crossed in front protecting body
     d.leftArm.shoulder.rotation.set(0.55, -0.35, 0.2);

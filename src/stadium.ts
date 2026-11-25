@@ -175,3 +175,4 @@ export function createStadium(scene: THREE.Scene) {
   scene.add(group);
   return group;
 }
+
