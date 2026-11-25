@@ -7,6 +7,7 @@ import { createGoalkeeper } from './goalkeeper';
 import { createDefensiveWall } from './wall';
 import { createCanvasHud } from './hud';
 import { buildShotPlan, collideGoalFrame, createTrajectoryPreview, type ShotPlan } from './trajectory';
+import { createStadium } from './stadium';
 
 type Phase = 'aiming' | 'running' | 'flying' | 'result';
 
@@ -49,6 +50,8 @@ scene.add(rimLight);
 const pitch = createPitch();
 scene.add(pitch.group);
 
+createStadium(scene);
+
 const ball = createBall(scene);
 const player = createPlayer(scene);
 const keeper = createGoalkeeper(scene);
@@ -67,6 +70,7 @@ let hitPostThisShot = false;
 let savedByKeeper = false;
 let blockedByWall = false;
 let resultTimer = 0;
+let emotionTriggered = false;
 
 const ballSpot = new THREE.Vector3(0, BALL_RADIUS, 20);
 let hasPlacedOnce = false;
@@ -95,8 +99,8 @@ function updateCameraGoals(immediate = false) {
 
 function pickNewSpot() {
   for (let tries = 0; tries < 12; tries++) {
-    const x = (Math.random() - 0.5) * 20; // -10 .. +10 m
-    const z = 16.5 + Math.random() * 10.5; // 16.5 .. 27 m
+    const x = (Math.random() - 0.5) * 20;
+    const z = 16.5 + Math.random() * 10.5;
     if (!hasPlacedOnce || Math.hypot(x - ballSpot.x, z - ballSpot.z) >= 5.5) {
       ballSpot.set(x, BALL_RADIUS, z);
       hasPlacedOnce = true;
@@ -117,6 +121,7 @@ function setupRound() {
   savedByKeeper = false;
   blockedByWall = false;
   resultTimer = 0;
+  emotionTriggered = false;
   preview.clear();
 
   pickNewSpot();
@@ -325,9 +330,22 @@ function stepFlight(dt: number) {
   if (scoredThisShot && freePhysics && resultTimer === 0 && (ball.pos.z < -0.4 || ball.vel.lengthSq() < 4)) {
     phase = 'result';
     resultTimer = 0.001;
+
+    if (!emotionTriggered) {
+      emotionTriggered = true;
+      player.celebrateGoal();
+      keeper.reactGoal();
+    }
   } else if ((pastGoal || deflectedAway || stopped) && !scoredThisShot && phase === 'flying') {
     phase = 'result';
     resultTimer = 0.001;
+
+    if (!emotionTriggered) {
+      emotionTriggered = true;
+      player.reactMiss();
+      keeper.celebrateSave();
+    }
+
     if (savedByKeeper) {
       hud.setState({ banner: { text: 'KURTARDI!', kind: 'save' } });
     } else if (blockedByWall) {
@@ -356,7 +374,7 @@ function animate() {
     const substeps = 3;
     for (let i = 0; i < substeps; i++) stepFlight(dt / substeps);
     resultTimer += dt;
-    if (resultTimer > 2.0) {
+    if (resultTimer > 2.5) {
       setupRound();
     }
   }

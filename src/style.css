@@ -34,12 +34,23 @@ body {
   cursor: crosshair;
 }
 
-.hud-bottom {
+.hud-top {
   position: absolute;
-  bottom: 18px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* On larger screens keep buttons at the bottom */
+@media (min-width: 600px) {
+  .hud-top {
+    top: auto;
+    bottom: 18px;
+  }
 }
 
 #reset-btn {
@@ -64,10 +75,6 @@ body {
 }
 
 .github-link {
-  position: absolute;
-  bottom: 18px;
-  left: 18px;
-  z-index: 10;
   color: #f4f6f3;
   text-decoration: none;
   font: 600 13px/1 Inter, system-ui, sans-serif;
@@ -76,6 +83,7 @@ body {
   padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.24);
+  white-space: nowrap;
 }
 .github-link:hover {
   background: rgba(255, 255, 255, 0.16);
