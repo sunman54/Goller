@@ -1,10 +1,3 @@
-/**
- * humanoid.ts – Cartoon-style articulated character rig.
- *
- * Proportions: big round head (~30 % of total height), stubby limbs,
- * round belly – built entirely from spheres, cylinders and boxes so it
- * reads as cute/fun rather than anatomically realistic.
- */
 import * as THREE from 'three';
 
 export interface HumanoidMaterials {
@@ -29,228 +22,256 @@ export interface HumanoidRig {
   rightLeg: { hip: THREE.Group; knee: THREE.Group; ankle: THREE.Group };
 }
 
-/* ── helpers ──────────────────────────────────────────────────────── */
-
-function sphere(r: number, mat: THREE.Material, sx = 1, sy = 1, sz = 1): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), mat);
-  m.scale.set(sx, sy, sz);
+function makeMesh(geo: THREE.BufferGeometry, mat: THREE.Material): THREE.Mesh {
+  const m = new THREE.Mesh(geo, mat);
   m.castShadow = true;
+  m.receiveShadow = true;
   return m;
 }
-
-function cyl(rt: number, rb: number, h: number, mat: THREE.Material): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, 14), mat);
-  m.castShadow = true;
-  return m;
-}
-
-function box(w: number, h: number, d: number, mat: THREE.Material): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 2, 2, 2), mat);
-  m.castShadow = true;
-  return m;
-}
-
-/* ── factory ──────────────────────────────────────────────────────── */
 
 /**
- * Builds a cartoon footballer rig facing local −Z.
- * Total height ≈ 1.65 m.  Head is ~0.38 m diameter – about ¼ of height.
+ * Builds an athletic, proportional ~1.83 m footballer rig facing local -Z.
+ * Features realistic athletic human anatomy, sculpted facial planes,
+ * athletic football kit details (collar, sleeve cuffs, boot studs, shorts).
  */
 export function createHumanoid(mats: HumanoidMaterials): HumanoidRig {
   const group = new THREE.Group();
 
-  /* ── HIPS / PELVIS ───────────────────────────────────────────────
-     Sits at y = 0.72.  Wide, round – shorts as a flattened sphere.  */
+  /* ── 1. HIPS & PELVIS (Base at y = 0.94m) ─────────────────────── */
   const hips = new THREE.Group();
-  hips.position.y = 0.72;
+  hips.position.y = 0.94;
   group.add(hips);
 
-  const pelvis = sphere(0.19, mats.shorts, 1.5, 0.75, 1.1);
+  // Shorts waistband & pelvis
+  const pelvisGeo = new THREE.CylinderGeometry(0.18, 0.165, 0.22, 16);
+  const pelvis = makeMesh(pelvisGeo, mats.shorts);
   hips.add(pelvis);
 
-  /* ── TORSO ───────────────────────────────────────────────────────
-     Egg-shaped belly, tapering up to narrower shoulders.           */
+  /* ── 2. ATHLETIC TORSO & CHEST ───────────────────────────────── */
   const torsoPivot = new THREE.Group();
-  torsoPivot.position.y = 0.06;
+  torsoPivot.position.y = 0.11;
   hips.add(torsoPivot);
 
-  // Belly (round)
-  const belly = sphere(0.19, mats.jersey, 1.1, 1.0, 1.0);
-  belly.position.y = 0.14;
-  torsoPivot.add(belly);
+  // Abdomen / waist (tapered athletic midsection)
+  const waistGeo = new THREE.CylinderGeometry(0.185, 0.165, 0.18, 16);
+  const waist = makeMesh(waistGeo, mats.jersey);
+  waist.position.y = 0.09;
+  torsoPivot.add(waist);
 
-  // Chest (slightly narrower)
-  const chest = sphere(0.165, mats.jersey, 1.1, 0.95, 0.9);
-  chest.position.y = 0.33;
+  // Athletic chest / ribcage (V-taper with broad pectorals)
+  const chestGeo = new THREE.CylinderGeometry(0.225, 0.185, 0.26, 16);
+  chestGeo.scale(1.15, 1.0, 0.78); // Wider shoulders, flat chest profile
+  const chest = makeMesh(chestGeo, mats.jersey);
+  chest.position.y = 0.29;
   torsoPivot.add(chest);
 
-  // Jersey number on chest (flat decal plane)
-  const numTex = (() => {
-    const cv = document.createElement('canvas');
-    cv.width = 128; cv.height = 128;
-    const ctx = cv.getContext('2d')!;
-    ctx.clearRect(0, 0, 128, 128);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.font = '900 72px Inter, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('10', 64, 64);
-    const t = new THREE.CanvasTexture(cv);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  })();
-  const numDecal = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.18, 0.18),
-    new THREE.MeshBasicMaterial({ map: numTex, transparent: true, depthWrite: false })
-  );
-  numDecal.position.set(0, 0.32, -0.17);
-  torsoPivot.add(numDecal);
+  // Ribbed jersey collar
+  const collarGeo = new THREE.TorusGeometry(0.095, 0.016, 8, 18);
+  collarGeo.rotateX(Math.PI / 2);
+  const collar = makeMesh(collarGeo, mats.jersey);
+  collar.position.set(0, 0.42, 0);
+  torsoPivot.add(collar);
 
-  /* ── NECK ────────────────────────────────────────────────────────*/
+  /* ── 3. NECK & HEAD ──────────────────────────────────────────── */
   const neckPivot = new THREE.Group();
-  neckPivot.position.y = 0.46;
+  neckPivot.position.y = 0.42;
   torsoPivot.add(neckPivot);
 
-  const neck = cyl(0.07, 0.085, 0.1, mats.skin);
-  neck.position.y = 0.05;
+  // Athletic neck
+  const neckGeo = new THREE.CylinderGeometry(0.068, 0.082, 0.12, 14);
+  const neck = makeMesh(neckGeo, mats.skin);
+  neck.position.y = 0.06;
   neckPivot.add(neck);
 
-  /* ── HEAD ────────────────────────────────────────────────────────
-     Large round cartoon head (r ≈ 0.19 m), offset upward.         */
   const headPivot = new THREE.Group();
-  headPivot.position.y = 0.11;
+  headPivot.position.y = 0.12;
   neckPivot.add(headPivot);
 
-  // Cranium
-  const head = sphere(0.19, mats.skin, 1.0, 1.08, 0.98);
-  head.position.y = 0.19;
+  // Cranium (natural athletic head oval)
+  const headGeo = new THREE.SphereGeometry(0.108, 20, 18);
+  headGeo.scale(0.92, 1.15, 1.0);
+  const head = makeMesh(headGeo, mats.skin);
+  head.position.y = 0.11;
   headPivot.add(head);
 
-  // Big cartoon eyes (white sclera + dark pupil spheres)
-  for (const [sx, ex] of [[-1, -0.072], [1, 0.072]] as [number, number][]) {
-    const sclera = sphere(0.045, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }));
-    sclera.position.set(ex, 0.21, -0.175);
-    headPivot.add(sclera);
+  // Sculpted athletic jaw & chin
+  const jawGeo = new THREE.CylinderGeometry(0.075, 0.052, 0.09, 12);
+  jawGeo.scale(0.9, 1.0, 1.1);
+  const jaw = makeMesh(jawGeo, mats.skin);
+  jaw.position.set(0, 0.05, -0.02);
+  headPivot.add(jaw);
 
-    const pupil = sphere(0.025, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 }));
-    pupil.position.set(ex, 0.21, -0.198);
-    headPivot.add(pupil);
-
-    // Eyebrow
-    const brow = box(0.065, 0.016, 0.014,
-      new THREE.MeshStandardMaterial({ color: 0x1a1208, roughness: 0.8 }));
-    brow.position.set(ex, 0.258, -0.178);
-    brow.rotation.z = sx * 0.18;
-    headPivot.add(brow);
-  }
-
-  // Cartoon nose (tiny sphere bump)
-  const nose = sphere(0.028, mats.skin);
-  nose.position.set(0, 0.185, -0.21);
+  // Clean nose bridge
+  const noseGeo = new THREE.ConeGeometry(0.018, 0.05, 8);
+  noseGeo.rotateX(-Math.PI / 2);
+  const nose = makeMesh(noseGeo, mats.skin);
+  nose.position.set(0, 0.11, -0.11);
   headPivot.add(nose);
 
-  // Mouth line (thin dark box)
-  const mouth = box(0.07, 0.014, 0.014,
-    new THREE.MeshStandardMaterial({ color: 0x8b2020, roughness: 0.9 }));
-  mouth.position.set(0, 0.158, -0.2);
-  headPivot.add(mouth);
+  // Athletic brow ridge / eye socket definition
+  const browGeo = new THREE.BoxGeometry(0.13, 0.022, 0.04);
+  const brow = makeMesh(browGeo, mats.skin);
+  brow.position.set(0, 0.14, -0.095);
+  headPivot.add(brow);
 
-  // Ear blobs
-  for (const ex of [-0.195, 0.195]) {
-    const ear = sphere(0.045, mats.skin, 0.6, 1.0, 0.5);
-    ear.position.set(ex, 0.195, 0.015);
+  // Ears
+  for (const side of [-1, 1]) {
+    const earGeo = new THREE.SphereGeometry(0.026, 10, 8);
+    earGeo.scale(0.4, 1.0, 0.65);
+    const ear = makeMesh(earGeo, mats.skin);
+    ear.position.set(side * 0.105, 0.105, 0.005);
     headPivot.add(ear);
   }
 
-  // Hair cap
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.197, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.52),
-    mats.hair
-  );
-  hair.position.set(0, 0.19, 0.012);
-  hair.rotation.x = -0.08;
-  hair.castShadow = true;
+  // Modern athletic haircut (textured crop / fade)
+  const hairGeo = new THREE.SphereGeometry(0.114, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.58);
+  hairGeo.scale(0.94, 1.18, 1.04);
+  const hair = makeMesh(hairGeo, mats.hair);
+  hair.position.set(0, 0.118, -0.008);
+  hair.rotation.x = -0.12;
   headPivot.add(hair);
 
-  /* ── ARMS ────────────────────────────────────────────────────────
-     Short, stubby cartoon arms.                                    */
+  /* ── 4. ARMS & HANDS ─────────────────────────────────────────── */
   const makeArm = (side: -1 | 1) => {
     const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.235, 0.36, 0);
+    shoulder.position.set(side * 0.245, 0.38, 0);
     torsoPivot.add(shoulder);
 
-    // Shoulder ball
-    const shBall = sphere(0.07, mats.skin);
-    shBall.position.y = -0.02;
-    shoulder.add(shBall);
+    // Deltoid muscle
+    const deltGeo = new THREE.SphereGeometry(0.076, 12, 10);
+    deltGeo.scale(1.0, 1.25, 1.0);
+    const delt = makeMesh(deltGeo, mats.jersey);
+    delt.position.y = -0.02;
+    shoulder.add(delt);
 
-    // Upper arm (jersey-covered, stubby cylinder)
-    const upper = cyl(0.062, 0.07, 0.17, mats.jersey);
-    upper.position.y = -0.1;
-    shoulder.add(upper);
+    // Jersey sleeve cuff
+    const sleeveGeo = new THREE.CylinderGeometry(0.074, 0.07, 0.14, 14);
+    const sleeve = makeMesh(sleeveGeo, mats.jersey);
+    sleeve.position.y = -0.09;
+    shoulder.add(sleeve);
+
+    // Bicep / upper arm
+    const bicepGeo = new THREE.CylinderGeometry(0.062, 0.058, 0.16, 12);
+    const bicep = makeMesh(bicepGeo, mats.skin);
+    bicep.position.y = -0.19;
+    shoulder.add(bicep);
 
     const elbow = new THREE.Group();
-    elbow.position.y = -0.19;
+    elbow.position.y = -0.27;
     shoulder.add(elbow);
 
     // Forearm
-    const fore = cyl(0.052, 0.062, 0.14, mats.skin);
-    fore.position.y = -0.07;
-    elbow.add(fore);
+    const forearmGeo = new THREE.CylinderGeometry(0.056, 0.046, 0.22, 12);
+    const forearm = makeMesh(forearmGeo, mats.skin);
+    forearm.position.y = -0.11;
+    elbow.add(forearm);
 
-    // Hand / glove – big round cartoon fist
-    const handMat = mats.gloves ?? mats.skin;
-    const fist = sphere(0.07, handMat, 1.1, 0.95, 0.9);
-    fist.position.y = -0.16;
-    elbow.add(fist);
+    // Hands / Goalkeeper Gloves
+    if (mats.gloves) {
+      // Pro goalkeeper padded latex glove
+      const gloveGeo = new THREE.BoxGeometry(0.105, 0.16, 0.075);
+      const glove = makeMesh(gloveGeo, mats.gloves);
+      glove.position.set(0, -0.24, -0.015);
+      elbow.add(glove);
 
-    // Thumb blob
-    const thumb = sphere(0.04, handMat);
-    thumb.position.set(side * 0.045, -0.14, -0.03);
-    elbow.add(thumb);
+      const thumbGeo = new THREE.BoxGeometry(0.045, 0.07, 0.045);
+      const thumb = makeMesh(thumbGeo, mats.gloves);
+      thumb.position.set(side * 0.055, -0.21, -0.035);
+      thumb.rotation.z = side * 0.35;
+      elbow.add(thumb);
+    } else {
+      // Natural athletic player hand (fingers gently curled for running)
+      const handGeo = new THREE.BoxGeometry(0.068, 0.11, 0.045);
+      const hand = makeMesh(handGeo, mats.skin);
+      hand.position.set(0, -0.23, -0.01);
+      elbow.add(hand);
+
+      const thumbGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.055, 8);
+      const thumb = makeMesh(thumbGeo, mats.skin);
+      thumb.position.set(side * 0.038, -0.21, -0.022);
+      thumb.rotation.z = side * 0.45;
+      elbow.add(thumb);
+    }
 
     return { shoulder, elbow };
   };
 
-  /* ── LEGS ────────────────────────────────────────────────────────
-     Short thick legs with big round boots.                         */
+  /* ── 5. LEGS & FOOTBALL CLEATS ───────────────────────────────── */
   const makeLeg = (side: -1 | 1) => {
     const hip = new THREE.Group();
-    hip.position.set(side * 0.1, -0.08, 0);
+    hip.position.set(side * 0.11, -0.05, 0);
     hips.add(hip);
 
-    // Thigh (shorts-covered cylinder, slightly tapered)
-    const thigh = cyl(0.085, 0.1, 0.22, mats.shorts);
-    thigh.position.y = -0.11;
+    // Shorts leg opening
+    const shortLegGeo = new THREE.CylinderGeometry(0.125, 0.12, 0.24, 14);
+    const shortLeg = makeMesh(shortLegGeo, mats.shorts);
+    shortLeg.position.y = -0.11;
+    hip.add(shortLeg);
+
+    // Powerful athletic thigh (quadriceps)
+    const thighGeo = new THREE.CylinderGeometry(0.098, 0.082, 0.25, 14);
+    const thigh = makeMesh(thighGeo, mats.skin);
+    thigh.position.y = -0.31;
     hip.add(thigh);
 
-    // Thigh bottom ball (knee area)
-    const kneeBall = sphere(0.085, mats.socks, 1.0, 0.85, 1.0);
-    kneeBall.position.y = -0.23;
-    hip.add(kneeBall);
-
     const knee = new THREE.Group();
-    knee.position.y = -0.26;
+    knee.position.y = -0.44;
     hip.add(knee);
 
-    // Shin (sock-covered)
-    const shin = cyl(0.068, 0.082, 0.2, mats.socks);
-    shin.position.y = -0.1;
+    // Patella / knee definition
+    const kneeCapGeo = new THREE.SphereGeometry(0.044, 10, 8);
+    kneeCapGeo.scale(1.0, 1.2, 0.7);
+    const kneeCap = makeMesh(kneeCapGeo, mats.skin);
+    kneeCap.position.set(0, 0, -0.035);
+    knee.add(kneeCap);
+
+    // Muscular calf in compression socks
+    const shinGeo = new THREE.CylinderGeometry(0.078, 0.06, 0.36, 14);
+    const shin = makeMesh(shinGeo, mats.socks);
+    shin.position.y = -0.18;
     knee.add(shin);
 
+    // Turnover cuff band at top of socks
+    const cuffGeo = new THREE.TorusGeometry(0.078, 0.014, 8, 16);
+    cuffGeo.rotateX(Math.PI / 2);
+    const cuff = makeMesh(cuffGeo, mats.socks);
+    cuff.position.y = -0.04;
+    knee.add(cuff);
+
     const ankle = new THREE.Group();
-    ankle.position.y = -0.21;
+    ankle.position.y = -0.37;
     knee.add(ankle);
 
-    // Big cartoon boot
-    const bootBody = sphere(0.095, mats.boots, 1.0, 0.72, 1.35);
-    bootBody.position.set(0, -0.025, -0.03);
-    ankle.add(bootBody);
+    // Modern Speed Football Boot (Cleat)
+    const bootUpperGeo = new THREE.BoxGeometry(0.088, 0.082, 0.24);
+    bootUpperGeo.scale(1.0, 1.0, 1.0);
+    const bootUpper = makeMesh(bootUpperGeo, mats.boots);
+    bootUpper.position.set(0, -0.024, -0.035);
+    ankle.add(bootUpper);
 
-    // Boot toe cap (extra sphere pushed forward)
-    const toeCap = sphere(0.07, mats.boots, 0.9, 0.65, 1.0);
-    toeCap.position.set(0, -0.025, -0.115);
-    ankle.add(toeCap);
+    // Aerodynamic curved toe box
+    const toeGeo = new THREE.CylinderGeometry(0.015, 0.044, 0.088, 12);
+    toeGeo.rotateZ(Math.PI / 2);
+    toeGeo.scale(1.0, 0.75, 1.1);
+    const toe = makeMesh(toeGeo, mats.boots);
+    toe.position.set(0, -0.038, -0.145);
+    ankle.add(toe);
+
+    // Boot soleplate & studs
+    const soleGeo = new THREE.BoxGeometry(0.09, 0.016, 0.25);
+    const sole = makeMesh(soleGeo, mats.boots);
+    sole.position.set(0, -0.068, -0.035);
+    ankle.add(sole);
+
+    for (const sz of [-0.12, -0.04, 0.04]) {
+      for (const sx of [-0.03, 0.03]) {
+        const studGeo = new THREE.ConeGeometry(0.009, 0.018, 6);
+        studGeo.rotateX(Math.PI);
+        const stud = makeMesh(studGeo, mats.boots);
+        stud.position.set(sx, -0.08, sz);
+        ankle.add(stud);
+      }
+    }
 
     return { hip, knee, ankle };
   };

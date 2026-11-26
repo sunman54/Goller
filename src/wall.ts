@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import { BALL_RADIUS } from './ball';
 import { createHumanoid, type HumanoidRig } from './humanoid';
+import {
+  createJerseyMaterial,
+  createShortsMaterial,
+  createSocksMaterial,
+  createBootMaterial,
+  createSkinMaterial,
+  createHairMaterial,
+} from './textures';
 
 export interface DefensiveWall {
   group: THREE.Group;
@@ -16,13 +24,18 @@ export function createDefensiveWall(scene: THREE.Scene): DefensiveWall {
   const group = new THREE.Group();
   scene.add(group);
 
+  // Pro royal blue away kit with micro-textures
   const mats = {
-    jersey: new THREE.MeshStandardMaterial({ color: 0x1e3a6e, roughness: 0.72 }),
-    shorts: new THREE.MeshStandardMaterial({ color: 0xf0f4f8, roughness: 0.75 }),
-    socks: new THREE.MeshStandardMaterial({ color: 0x1e3a6e, roughness: 0.7 }),
-    boots: new THREE.MeshStandardMaterial({ color: 0x16191e, roughness: 0.4 }),
-    skin: new THREE.MeshStandardMaterial({ color: 0xd39873, roughness: 0.65 }),
-    hair: new THREE.MeshStandardMaterial({ color: 0x1a1512, roughness: 0.85 }),
+    jersey: createJerseyMaterial({
+      baseColor: '#1d4ed8',
+      accentColor: '#1e40af',
+      trimColor: '#facc15',
+    }),
+    shorts: createShortsMaterial('#1e40af', '#facc15'),
+    socks: createSocksMaterial('#1d4ed8', '#facc15'),
+    boots: createBootMaterial('#111827', '#ffffff'),
+    skin: createSkinMaterial('#c08560'),
+    hair: createHairMaterial('#15100c'),
   };
 
   const defenders: HumanoidRig[] = [];
@@ -45,8 +58,9 @@ export function createDefensiveWall(scene: THREE.Scene): DefensiveWall {
   function applyWallStance(d: HumanoidRig, jumpHeight: number, elapsed: number, phaseOffset: number) {
     d.group.position.y = jumpHeight;
     const sway = Math.sin(elapsed * 2.3 + phaseOffset) * 0.01;
-    d.hips.position.y = 0.72 + sway;   // cartoon rig hips height
+    d.hips.position.y = 0.94 + sway;
     d.torsoPivot.rotation.set(0.08, 0, 0);
+
     // Arms crossed in front protecting body
     d.leftArm.shoulder.rotation.set(0.55, -0.35, 0.2);
     d.leftArm.elbow.rotation.set(1.05, 0, 0);
@@ -82,7 +96,7 @@ export function createDefensiveWall(scene: THREE.Scene): DefensiveWall {
       .addScaledVector(toGoal, wallDist)
       .addScaledVector(side, nearBias);
 
-    const yaw = Math.atan2(toGoal.x, toGoal.z); // face toward ball (opposite toGoal)
+    const yaw = Math.atan2(toGoal.x, toGoal.z); // Face toward ball (opposite toGoal)
     const spacing = 0.52;
 
     for (let i = 0; i < MAX_WALL; i++) {
@@ -134,7 +148,7 @@ export function createDefensiveWall(scene: THREE.Scene): DefensiveWall {
     for (let i = 0; i < activeCount; i++) {
       const d = defenders[i];
       const baseY = d.group.position.y;
-      const topY = baseY + 1.78;
+      const topY = baseY + 1.82;
       if (pos.y > topY + BALL_RADIUS) continue;
 
       const dx = pos.x - d.group.position.x;
