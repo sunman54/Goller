@@ -20,46 +20,65 @@ export interface Pitch {
   update(dt: number): void;
 }
 
-function createGrassTexture(): THREE.CanvasTexture {
-  const size = 512;
+/**
+ * Creates lush, vibrant professional stadium turf texture
+ * with alternating mowed stripes and fine grass blade detail.
+ */
+function createGrassTextures(): { map: THREE.CanvasTexture; bump: THREE.CanvasTexture } {
+  const size = 1024;
   const cv = document.createElement('canvas');
   cv.width = cv.height = size;
   const ctx = cv.getContext('2d')!;
 
-  // Base turf
-  ctx.fillStyle = '#256c35';
-  ctx.fillRect(0, 0, size, size);
+  const bCv = document.createElement('canvas');
+  bCv.width = bCv.height = size;
+  const bCtx = bCv.getContext('2d')!;
 
-  // Alternating mowed stripes
-  const stripes = 4;
+  // 1. Alternating vibrant mowed grass stripes (championship pitch)
+  const stripes = 8;
   const sw = size / stripes;
+  const lightGreen = '#2e8b45';
+  const darkGreen = '#247537';
+
   for (let i = 0; i < stripes; i++) {
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.05)';
+    ctx.fillStyle = (i % 2 === 0) ? lightGreen : darkGreen;
     ctx.fillRect(0, i * sw, size, sw);
   }
 
-  // Fine blade grain
+  // 2. Micro grass blade noise
   const img = ctx.getImageData(0, 0, size, size);
-  const d = img.data;
-  let seed = 1337;
+  const bImg = bCtx.createImageData(size, size);
+  let seed = 42;
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  for (let i = 0; i < d.length; i += 4) {
-    const n = (rand() - 0.5) * 18;
-    d[i] = Math.min(255, Math.max(0, d[i] + n * 0.7));
-    d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + n));
-    d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + n * 0.6));
+
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = (rand() - 0.5) * 22;
+    img.data[i] = Math.min(255, Math.max(0, img.data[i] + n * 0.7));
+    img.data[i + 1] = Math.min(255, Math.max(0, img.data[i + 1] + n));
+    img.data[i + 2] = Math.min(255, Math.max(0, img.data[i + 2] + n * 0.6));
+
+    const bump = Math.min(255, Math.max(0, 128 + n * 3.5));
+    bImg.data[i] = bImg.data[i + 1] = bImg.data[i + 2] = bump;
+    bImg.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
+  bCtx.putImageData(bImg, 0, 0);
 
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(6, 8);
-  tex.anisotropy = 8;
-  return tex;
+  const mapTex = new THREE.CanvasTexture(cv);
+  mapTex.colorSpace = THREE.SRGBColorSpace;
+  mapTex.wrapS = mapTex.wrapT = THREE.RepeatWrapping;
+  mapTex.repeat.set(8, 12);
+  mapTex.anisotropy = 8;
+
+  const bumpTex = new THREE.CanvasTexture(bCv);
+  bumpTex.wrapS = bumpTex.wrapT = THREE.RepeatWrapping;
+  bumpTex.repeat.set(8, 12);
+  bumpTex.anisotropy = 8;
+
+  return { map: mapTex, bump: bumpTex };
 }
 
 function createNetTexture(): THREE.CanvasTexture {
@@ -68,17 +87,14 @@ function createNetTexture(): THREE.CanvasTexture {
   cv.width = cv.height = size;
   const ctx = cv.getContext('2d')!;
   ctx.clearRect(0, 0, size, size);
-  ctx.strokeStyle = 'rgba(242, 246, 244, 0.85)';
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.lineWidth = 4;
 
-  // Diamond/square net cords
   const step = 32;
   ctx.beginPath();
   for (let i = 0; i <= size; i += step) {
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i, size);
-    ctx.moveTo(0, i);
-    ctx.lineTo(size, i);
+    ctx.moveTo(i, 0); ctx.lineTo(i, size);
+    ctx.moveTo(0, i); ctx.lineTo(size, i);
   }
   ctx.stroke();
 
@@ -91,8 +107,8 @@ function createNetTexture(): THREE.CanvasTexture {
 
 function addLine(parent: THREE.Group, x: number, z: number, w: number, l: number) {
   const mat = new THREE.MeshStandardMaterial({
-    color: 0xf0f4f1,
-    roughness: 0.85,
+    color: 0xffffff,
+    roughness: 0.6,
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, l), mat);
   mesh.rotation.x = -Math.PI / 2;
@@ -104,22 +120,23 @@ function addLine(parent: THREE.Group, x: number, z: number, w: number, l: number
 export function createPitch(): Pitch {
   const group = new THREE.Group();
 
-  // Turf field
-  const grassTex = createGrassTexture();
+  // 1. Vibrant championship turf field
+  const { map: grassTex, bump: grassBump } = createGrassTextures();
   const groundMat = new THREE.MeshStandardMaterial({
     map: grassTex,
-    roughness: 0.9,
+    bumpMap: grassBump,
+    bumpScale: 0.004,
+    roughness: 0.82,
     metalness: 0.0,
   });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), groundMat);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, 0, 14);
   ground.receiveShadow = true;
   group.add(ground);
 
-  // White pitch markings (line width 0.12 m)
+  // 2. Crisp white pitch markings
   const lw = 0.12;
-  // Goal line & touchlines
   addLine(group, 0, 0, 68, lw);
   addLine(group, -34, 24, lw, 48);
   addLine(group, 34, 24, lw, 48);
@@ -136,37 +153,37 @@ export function createPitch(): Pitch {
 
   // Penalty spot
   const spot = new THREE.Mesh(
-    new THREE.CircleGeometry(0.14, 20),
-    new THREE.MeshStandardMaterial({ color: 0xf0f4f1, roughness: 0.85 }),
+    new THREE.CircleGeometry(0.14, 24),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
   );
   spot.rotation.x = -Math.PI / 2;
   spot.position.set(0, 0.006, 11);
   spot.receiveShadow = true;
   group.add(spot);
 
-  // Penalty arc (radius 9.15 around z = 11, outside z = 16.5)
+  // Penalty arc
   const arcHalfAngle = Math.acos((16.5 - 11) / 9.15);
   const arc = new THREE.Mesh(
     new THREE.RingGeometry(9.15 - lw / 2, 9.15 + lw / 2, 48, 1, Math.PI / 2 - arcHalfAngle, arcHalfAngle * 2),
-    new THREE.MeshStandardMaterial({ color: 0xf0f4f1, roughness: 0.85 }),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
   );
   arc.rotation.x = -Math.PI / 2;
   arc.position.set(0, 0.005, 11);
   arc.receiveShadow = true;
   group.add(arc);
 
-  // Goal posts and crossbar
+  // 3. Goal posts and crossbar (Glossy white enamel finish)
   const hw = GOAL.width / 2;
   const h = GOAL.height;
   const d = GOAL.depth;
   const r = GOAL.postRadius;
   const postMat = new THREE.MeshStandardMaterial({
-    color: 0xf6f8fa,
-    roughness: 0.28,
-    metalness: 0.35,
+    color: 0xffffff,
+    roughness: 0.22,
+    metalness: 0.15,
   });
 
-  const makeCyl = (rad: number, len: number) => new THREE.CylinderGeometry(rad, rad, len, 18);
+  const makeCyl = (rad: number, len: number) => new THREE.CylinderGeometry(rad, rad, len, 24);
 
   const leftPost = new THREE.Mesh(makeCyl(r, h), postMat);
   leftPost.position.set(-hw, h / 2, 0);
@@ -181,7 +198,7 @@ export function createPitch(): Pitch {
   crossbar.position.set(0, h, 0);
   crossbar.castShadow = true;
 
-  // Back support bars
+  // Back support frame
   const sr = 0.032;
   const backGround = new THREE.Mesh(makeCyl(sr, GOAL.width), postMat);
   backGround.rotation.z = Math.PI / 2;
@@ -202,10 +219,9 @@ export function createPitch(): Pitch {
     sideTop.position.set(sx, h, (-d * 0.82) / 2);
     group.add(sideTop);
 
-    const dx = 0;
     const dy = h - sr;
     const dz = d - d * 0.82;
-    const strutLen = Math.hypot(dx, dy, dz);
+    const strutLen = Math.hypot(dy, dz);
     const strut = new THREE.Mesh(makeCyl(sr, strutLen), postMat);
     strut.position.set(sx, (h + sr) / 2, (-d - d * 0.82) / 2);
     strut.rotation.x = -Math.atan2(dz, dy);
@@ -213,7 +229,7 @@ export function createPitch(): Pitch {
   }
   group.add(leftPost, rightPost, crossbar, backGround, backTop);
 
-  // Deformable goal net panels
+  // 4. Deformable goal net panels
   const netTex = createNetTexture();
   const netPanels: { mesh: THREE.Mesh; basePos: Float32Array; normal: THREE.Vector3 }[] = [];
 
@@ -225,7 +241,7 @@ export function createPitch(): Pitch {
     const mat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.8,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
@@ -317,4 +333,3 @@ export function createPitch(): Pitch {
 
   return { group, rippleNet, update };
 }
-

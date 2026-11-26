@@ -22,29 +22,32 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x132638);
-scene.fog = new THREE.Fog(0x132638, 35, 95);
+scene.background = new THREE.Color(0x38bdf8); // Vibrant matchday sky
+scene.fog = new THREE.Fog(0x7dd3fc, 55, 150); // Soft distant atmospheric haze
 
 const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 160);
 
-const hemi = new THREE.HemisphereLight(0xaad0ff, 0x1a3320, 0.75);
+// Rich stadium lighting: Sky light + grass ground bounce
+const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x15803d, 0.95);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xfff4df, 2.3);
-sun.position.set(14, 24, 18);
+// Warm radiant sunlight with soft filtered shadows
+const sun = new THREE.DirectionalLight(0xfffbeb, 2.5);
+sun.position.set(16, 26, 20);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -24;
-sun.shadow.camera.right = 24;
-sun.shadow.camera.top = 30;
-sun.shadow.camera.bottom = -10;
+sun.shadow.camera.left = -25;
+sun.shadow.camera.right = 25;
+sun.shadow.camera.top = 32;
+sun.shadow.camera.bottom = -12;
 sun.shadow.camera.near = 2;
-sun.shadow.camera.far = 75;
-sun.shadow.bias = -0.0005;
+sun.shadow.camera.far = 80;
+sun.shadow.bias = -0.0004;
 scene.add(sun);
 
-const rimLight = new THREE.DirectionalLight(0x9ec9ff, 0.8);
-rimLight.position.set(-16, 12, -18);
+// Cool rim backlight for player & ball definition
+const rimLight = new THREE.DirectionalLight(0xdbeafe, 1.1);
+rimLight.position.set(-18, 14, -20);
 scene.add(rimLight);
 
 const pitch = createPitch();
